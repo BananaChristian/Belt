@@ -24,17 +24,18 @@ pub enum TokenType {
 
     Illegal,
     Assign,  // =
+    Comma,   //,
     LSquare, //[
     RSquare, //]
     End,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
-    token_type: TokenType,
-    literal: String,
-    line: usize,
-    col: usize,
+    pub token_type: TokenType,
+    pub literal: String,
+    pub line: usize,
+    pub col: usize,
 }
 
 impl Token {
@@ -99,7 +100,11 @@ impl Lexer {
         }
     }
 
-    pub fn advance(&mut self) {
+    pub fn get_tokens(self) -> Vec<Token> {
+        self.tokens
+    }
+
+    fn advance(&mut self) {
         if self.current_char() == '\n' {
             self.line += 1;
             self.col = 1;
@@ -109,15 +114,15 @@ impl Lexer {
         self.pos += 1;
     }
 
-    pub fn current_char(&self) -> char {
+    fn current_char(&self) -> char {
         *self.input.get(self.pos).unwrap_or(&'\0')
     }
 
-    pub fn next_char(&self) -> char {
+    fn next_char(&self) -> char {
         *self.input.get(self.pos + 1).unwrap_or(&'\0')
     }
 
-    pub fn skip_comments(&mut self) {
+    fn skip_comments(&mut self) {
         if self.current_char() == '#' {
             self.advance();
             //If it is a multiline comment
@@ -151,7 +156,7 @@ impl Lexer {
         }
     }
 
-    pub fn tokenize_string(&mut self) -> Token {
+    fn tokenize_string(&mut self) -> Token {
         self.advance();
         let mut value = String::new();
         while self.current_char() != '\0' && self.current_char() != '\n' {
@@ -193,7 +198,7 @@ impl Lexer {
         }
     }
 
-    pub fn tokenize_identifier(&mut self) -> Token {
+    fn tokenize_identifier(&mut self) -> Token {
         let mut identifier = String::new();
         while self.current_char().is_alphabetic() || self.current_char() == '_' {
             identifier.push(self.current_char());
@@ -213,12 +218,13 @@ impl Lexer {
         }
     }
 
-    pub fn tokenize_symbols(&mut self) -> Token {
+    fn tokenize_symbols(&mut self) -> Token {
         let token = Token {
             token_type: match self.current_char() {
                 '[' => TokenType::LSquare,
                 ']' => TokenType::RSquare,
                 '=' => TokenType::Assign,
+                ',' => TokenType::Comma,
                 _ => TokenType::Illegal,
             },
             literal: self.current_char().to_string(),
@@ -229,7 +235,7 @@ impl Lexer {
         token
     }
 
-    pub fn tokenize(&mut self) -> Token {
+    fn tokenize(&mut self) -> Token {
         if self.current_char().is_alphabetic() || self.current_char() == '_' {
             return self.tokenize_identifier();
         }
@@ -249,6 +255,14 @@ impl Lexer {
             let token = self.tokenize();
             self.tokens.push(token);
         }
+
+        //Push the end token
+        self.tokens.push(Token {
+            token_type: TokenType::End,
+            literal: String::from(""),
+            line: self.line,
+            col: self.col,
+        });
     }
 
     pub fn print_tokens(&self) {
