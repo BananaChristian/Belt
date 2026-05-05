@@ -1,15 +1,15 @@
 use crate::leather::lexer::{Token, TokenType};
 //AST
 #[derive(Debug)]
-struct ArrayLiteral {
+pub struct ArrayLiteral {
     lbracket: Token,
-    expressions: Vec<Expression>,
+    pub expressions: Vec<Expression>,
     rbracket: Token,
 }
 
 //This represents identifiers, "", arrays
 #[derive(Debug)]
-enum Expression {
+pub enum Expression {
     Identifier(Token),
     Keyword(Token),
     StringLit(Token),
@@ -18,28 +18,28 @@ enum Expression {
 
 //For stuff like [project]
 #[derive(Debug)]
-struct Head {
+pub struct Head {
     lbracket: Token,
-    head: Token,
+    pub head: Token,
     rbracket: Token,
 }
 
 //For stuff like version = ""
 #[derive(Debug)]
-struct Variable {
-    name: Expression,
-    value: Expression,
+pub struct Variable {
+    pub name: Expression,
+    pub value: Expression,
 }
 
 #[derive(Debug)]
-struct Section {
-    head: Head,
-    contents: Vec<Variable>,
+pub struct Section {
+    pub head: Head,
+    pub contents: Vec<Variable>,
 }
 
 #[derive(Debug)]
 pub struct Config {
-    sections: Vec<Section>,
+    pub sections: Vec<Section>,
 }
 
 //PARSER
