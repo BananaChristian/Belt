@@ -1,11 +1,11 @@
-#[derive(Debug)]
+#[derive(Debug,Clone,PartialEq)]
 pub enum BuildMode{
     Executable,
     Static,
     Object,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Project{
     pub name: String,
     pub version: String,
@@ -13,7 +13,7 @@ pub struct Project{
     pub mode: BuildMode
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Layout{
     pub src: String,
     pub stubs: String,
@@ -21,17 +21,17 @@ pub struct Layout{
     pub build: String
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Dependecies{
     pub deps: Vec<(String,String)>,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Link{
     pub links:Vec<(String,Vec<String>)>
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Config{
     pub project: Project,
     pub layout: Layout,

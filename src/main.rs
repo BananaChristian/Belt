@@ -1,5 +1,6 @@
 mod config;
 mod scaffold;
+mod graph;
 mod project;
 mod leather;
 
