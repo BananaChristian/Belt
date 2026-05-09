@@ -88,11 +88,11 @@ pub fn get_imports(file_path: &str) -> Vec<String> {
             let parts: Vec<&str> = trimmed.splitn(2, ' ').collect();
             if parts.len() == 2 {
                 imports.push(parts[1].trim().to_string());
-            } else if trimmed.starts_with("module") {
-                continue;
-            } else if !trimmed.is_empty() {
-                break;
             }
+        } else if trimmed.starts_with("module") {
+            continue;
+        } else if !trimmed.is_empty() {
+            break;
         }
     }
 
