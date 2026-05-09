@@ -61,14 +61,14 @@ fn create_project(project_name: &String, layout: &Layout) -> Result<(), std::io:
     Ok(())
 }
 
-pub fn scaffold(project_name: &String)->Result<(),std::io::Error>{
-    let layout =Layout{
+pub fn scaffold(project_name: &String) -> Result<(), std::io::Error> {
+    let layout = Layout {
         src: "src".to_string(),
         stubs: "stubs".to_string(),
         objs: "objs".to_string(),
         build: "build".to_string(),
     };
     create_project(project_name, &layout)?;
-    
+
     Ok(())
 }
