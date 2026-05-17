@@ -6,7 +6,6 @@ pub struct Semantics {
     ast: astConfig,
 }
 
-pub type SemanticError = String;
 pub type SemanticResult<T> = Result<T, String>;
 
 fn get_string(expression: &Expression) -> SemanticResult<String> {
@@ -82,7 +81,7 @@ impl Semantics {
 
         for variable in &section.contents {
             let key = match &variable.name {
-                Expression::Identifier(token) => get_string(&variable.name)?,
+                Expression::Identifier(_token) => get_string(&variable.name)?,
                 _ => return Err("Expected identifier as the key in the layout section".to_string()),
             };
             let value = get_string(&variable.value)?;
@@ -99,7 +98,7 @@ impl Semantics {
         Ok(Layout {
             src: src.unwrap_or_else(|| "src".to_string()),
             stubs: stubs.unwrap_or_else(|| "stubs".to_string()),
-            objs: objs.unwrap_or_else(|| "obj".to_string()),
+            objs: objs.unwrap_or_else(|| "objs".to_string()),
             build: build.unwrap_or_else(|| "build".to_string()),
         })
     }
@@ -146,7 +145,7 @@ impl Semantics {
         let layout = layout.unwrap_or_else(|| Layout {
             src: "src".to_string(),
             stubs: "stubs".to_string(),
-            objs: "obj".to_string(),
+            objs: "objs".to_string(),
             build: "build".to_string(),
         });
 

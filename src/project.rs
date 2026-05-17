@@ -1,4 +1,4 @@
-use crate::config::{self, BuildMode, Config};
+use crate::config::{BuildMode, Config};
 use std::{fs, path::Path};
 
 pub struct Workspace {
