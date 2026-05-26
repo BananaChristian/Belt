@@ -21,6 +21,10 @@ pub enum TokenType {
     Entry,
     Mode,
     Name,
+    Target,
+    Script,
+    Freestanding,
+    True,
 
     Illegal,
     Assign,  // =
@@ -80,6 +84,10 @@ impl Lexer {
                 ("entry".to_string(), TokenType::Entry),
                 ("mode".to_string(), TokenType::Mode),
                 ("name".to_string(), TokenType::Name),
+                ("target".to_string(), TokenType::Target),
+                ("script".to_string(), TokenType::Script),
+                ("freestanding".to_string(), TokenType::Freestanding),
+                ("true".to_string(), TokenType::True),
             ]),
             pos: 0,
             line: 1,
@@ -263,11 +271,5 @@ impl Lexer {
             line: self.line,
             col: self.col,
         });
-    }
-
-    pub fn print_tokens(&self) {
-        for token in &self.tokens {
-            println!("{:#?}", token);
-        }
     }
 }

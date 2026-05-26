@@ -81,11 +81,6 @@ impl Parser {
         self.tokens.get(self.pos).unwrap_or(&self.sentinel)
     }
 
-    fn next_token(&self) -> &Token {
-        self.tokens.get(self.pos + 1).unwrap_or(&self.sentinel)
-    }
-
-
     fn expect(&mut self, expected_type: TokenType) -> ParseResult<&Token> {
         if self.current_token().token_type == expected_type {
             Ok(self.current_token())
@@ -143,6 +138,10 @@ impl Parser {
             | TokenType::Project
             | TokenType::Layout
             | TokenType::Dependecies
+            | TokenType::Target
+            | TokenType::Script
+            | TokenType::Freestanding
+            | TokenType::True
             | TokenType::Link => {
                 let kw = self.current_token().clone();
                 self.advance();

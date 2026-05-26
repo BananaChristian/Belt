@@ -1,4 +1,6 @@
-use crate::config::{BuildMode, Config as beltConfig, Dependecies, Layout, Link, Project};
+use crate::config::{
+    BuildMode, Config as beltConfig, Dependecies, FreeStanding, Layout, Link, Project,
+};
 use crate::leather::lexer::TokenType;
 use crate::leather::parser::{Config as astConfig, Expression, Section};
 
@@ -41,6 +43,9 @@ impl Semantics {
         let mut version: Option<String> = None;
         let mut entry: Option<String> = None;
         let mut mode = BuildMode::Executable; // default
+        let mut target: Option<String> = None;
+        let mut freestanding = FreeStanding::False; //default it to false
+        let mut script: Option<String> = None;
 
         for variable in &section.contents {
             let key = match &variable.name {
@@ -61,6 +66,15 @@ impl Semantics {
                         _ => return Err(format!("Invalid mode: {}", value)),
                     }
                 }
+                TokenType::Freestanding => {
+                    freestanding = match value.as_str() {
+                        "true" => FreeStanding::True,
+                        "false" => FreeStanding::False,
+                        _ => return Err(format!("Invalid freestanding flag: {}", value)),
+                    }
+                }
+                TokenType::Target => target = Some(value),
+                TokenType::Script => script = Some(value),
                 _ => return Err(format!("Unknown key in [project]")),
             }
         }
@@ -70,6 +84,9 @@ impl Semantics {
             version: version.ok_or("error: missing required field 'version'")?,
             entry,
             mode,
+            target,
+            freestanding,
+            script,
         })
     }
 
@@ -149,6 +166,11 @@ impl Semantics {
             build: "build".to_string(),
         });
 
-        Ok(beltConfig { project, layout,dependecies,link})
+        Ok(beltConfig {
+            project,
+            layout,
+            dependecies,
+            link,
+        })
     }
 }
