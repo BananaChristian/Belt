@@ -23,6 +23,7 @@ fn scan_directory(dir: &str, unn_files: &mut Vec<String>) -> Result<(), std::io:
 
 fn get_source_files(config: &Config) -> Result<Vec<String>, std::io::Error> {
     let mut unn_files = Vec::new();
+    println!("scanning: {}",&config.layout.src);
     scan_directory(&config.layout.src, &mut unn_files)?;
     Ok(unn_files)
 }

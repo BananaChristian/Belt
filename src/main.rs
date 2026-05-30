@@ -6,6 +6,7 @@ mod project;
 mod scaffold;
 
 use std::env;
+use std::process::Command;
 
 use crate::scaffold::scaffold;
 use leather::analyzer::Semantics;
@@ -52,9 +53,62 @@ fn main() {
             },
             Err(e) => eprintln!("{}", e),
         },
-        Some("run") => {
-            //I want to call build and after run the executable generated in build
-        }
+        Some("run") => match load_config() {
+            Ok(config) => match Workspace::build(&config) {
+                Ok(workspace) => {
+                    let build_dir = &config.layout.build;
+                    let name = &config.project.name;
+                    let output = format!("{}/{}", build_dir, name);
+                    match Builder::new(workspace) {
+                        Ok(builder) => match builder.build() {
+                            Ok(_) => {
+                                let status = Command::new(&output)
+                                    .status()
+                                    .map_err(|e| eprintln!("error: failed to run: {}", e));
+                            }
+                            Err(e) => eprintln!("{}", e),
+                        },
+                        Err(e) => eprintln!("{}", e),
+                    }
+                }
+                Err(e) => eprintln!("{}", e),
+            },
+            Err(e) => eprintln!("{}", e),
+        },
+        Some("clean") => match load_config() {
+            Ok(config) => {
+                let layout = &config.layout;
+                let dirs = [&layout.stubs, &layout.objs, &layout.build];
+                let mut failed = false;
+                for dir in &dirs {
+                    match std::fs::read_dir(dir) {
+                        Ok(entries) => {
+                            for entry in entries.flatten() {
+                                let path = entry.path();
+                                if path.is_file() {
+                                    if let Err(e) = std::fs::remove_file(&path) {
+                                        eprintln!(
+                                            "error: failed to remove {}:{}",
+                                            path.display(),
+                                            e
+                                        );
+                                        failed = true;
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("error: could not read {}: {}", dir, e);
+                            failed = true;
+                        }
+                    }
+                }
+                if !failed {
+                    println!("clean complete");
+                }
+            }
+            Err(e) => eprintln!("{}", e),
+        },
         Some("check") => match load_config() {
             Ok(config) => {
                 println!("{:#?}", config);
@@ -70,6 +124,8 @@ fn main() {
             println!("Commands:");
             println!("  new <name>      Create a new project");
             println!("  build           Build the project");
+            println!("  run             Run the generated executable");
+            println!("  clean           Delete the generated objects,executable and stubs");
             println!("  check           Run frontend checks only");
             println!("  help            Show this message");
             println!("  version         Show belt's version");

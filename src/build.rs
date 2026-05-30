@@ -42,7 +42,7 @@ impl Builder {
         let builder = Builder {
             graph: match Graph::build(&workspace.source_files) {
                 Ok(g) => g,
-                Err(_) => return Err("error: failed to get source files".to_string()),
+                Err(e) => return Err(format!("error: failed to get source files: {}",e)),
             },
             workspace: workspace,
         };
