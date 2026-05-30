@@ -127,6 +127,7 @@ fn main() {
             println!("  run             Run the generated executable");
             println!("  clean           Delete the generated objects,executable and stubs");
             println!("  check           Run frontend checks only");
+            println!("  <custom>        Run a custom command from the [commands] section");
             println!("  help            Show this message");
             println!("  version         Show belt's version");
             println!();
@@ -153,6 +154,9 @@ fn main() {
             println!("  [link]");
             println!("    <name> = [\"lib1\"]      C libraries to link");
             println!();
+            println!("  [commands]");
+            println!("    <cmd> = \"my_command\"    Custom command for belt to run");
+            println!();
             println!("Examples:");
             println!("  belt new myproject");
             println!("  belt build");
@@ -162,6 +166,35 @@ fn main() {
             println!("  belt build  # kernel: freestanding = true, script = linker.ld");
         }
         None => eprintln!("error: no command provided"),
-        _ => eprintln!("error: unknown command"),
+        _ => {
+            let cmd_name = match args.get(1) {
+                Some(n) => n,
+                None => {
+                    eprintln!("error: no command provided");
+                    return;
+                }
+            };
+            match load_config() {
+                Ok(config) => match config.commands {
+                    Some(commands) => match commands.commands.get(cmd_name.as_str()) {
+                        Some(cmd_str) => {
+                            let parts: Vec<&str> = cmd_str.split_whitespace().collect();
+                            if parts.is_empty() {
+                                eprintln!("error: empty command for '{}'", cmd_name);
+                                return;
+                            }
+                            match Command::new(parts[0]).args(&parts[1..]).status() {
+                                Ok(s) if s.success() => {}
+                                Ok(_) => eprintln!("error: command '{}' failed", cmd_name),
+                                Err(e) => eprintln!("error: failed to run '{}': '{}'", cmd_name, e),
+                            }
+                        }
+                        None => eprintln!("error: unknown command '{}'", cmd_name),
+                    },
+                    None => eprintln!("error: unknown command '{}'", cmd_name),
+                },
+                Err(_) => eprintln!("error: unknown '{}'", cmd_name),
+            }
+        }
     }
 }

@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+
 use crate::config::{
-    BuildMode, Config as beltConfig, Dependecies, FreeStanding, Layout, Link, Project,
+    BuildMode, Commands, Config as beltConfig, Dependecies, FreeStanding, Layout, Link, Project,
 };
 use crate::leather::lexer::TokenType;
 use crate::leather::parser::{Config as astConfig, Expression, Section};
@@ -142,11 +144,22 @@ impl Semantics {
         Ok(Link { links })
     }
 
+    fn analyze_commands(&self, section: &Section) -> SemanticResult<Commands> {
+        let mut cmds = HashMap::new();
+        for variable in &section.contents {
+            let key = get_string(&variable.name)?;
+            let value = get_string(&variable.value)?;
+            cmds.insert(key, value);
+        }
+        Ok(Commands { commands: cmds })
+    }
+
     pub fn analyze(&self) -> SemanticResult<beltConfig> {
         let mut project: Option<Project> = None;
         let mut layout: Option<Layout> = None;
         let mut dependecies: Option<Dependecies> = None;
         let mut link: Option<Link> = None;
+        let mut commands: Option<Commands> = None;
 
         for section in &self.ast.sections {
             match section.head.head.token_type {
@@ -154,6 +167,7 @@ impl Semantics {
                 TokenType::Layout => layout = Some(self.analyze_layout(section)?),
                 TokenType::Dependecies => dependecies = Some(self.analyze_dependecies(section)?),
                 TokenType::Link => link = Some(self.analyze_link(section)?),
+                TokenType::Commands => commands = Some(self.analyze_commands(section)?),
                 _ => return Err("Unknown section".to_string()),
             };
         }
@@ -171,6 +185,7 @@ impl Semantics {
             layout,
             dependecies,
             link,
+            commands,
         })
     }
 }

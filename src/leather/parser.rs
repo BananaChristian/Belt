@@ -137,6 +137,7 @@ impl Parser {
             | TokenType::Object
             | TokenType::Project
             | TokenType::Layout
+            | TokenType::Commands
             | TokenType::Dependecies
             | TokenType::Target
             | TokenType::Script
@@ -162,9 +163,11 @@ impl Parser {
         self.advance(); //Consume the l-bracket token
 
         let head: ParseResult<&Token> = match self.current_token().token_type {
-            TokenType::Project | TokenType::Layout | TokenType::Dependecies | TokenType::Link => {
-                Ok(&self.current_token().clone())
-            }
+            TokenType::Project
+            | TokenType::Layout
+            | TokenType::Dependecies
+            | TokenType::Link
+            | TokenType::Commands => Ok(&self.current_token().clone()),
             _ => Err("Invalid section header".to_string()),
         };
 

@@ -10,6 +10,7 @@ pub enum TokenType {
     Layout,
     Dependecies,
     Link,
+    Commands,
 
     //Value keywords
     Executable,
@@ -77,6 +78,7 @@ impl Lexer {
                 ("layout".to_string(), TokenType::Layout),
                 ("dependecies".to_string(), TokenType::Dependecies),
                 ("link".to_string(), TokenType::Link),
+                ("commands".to_string(),TokenType::Commands),
                 ("executable".to_string(), TokenType::Executable),
                 ("static".to_string(), TokenType::Static),
                 ("object".to_string(), TokenType::Object),

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum BuildMode {
     Executable,
@@ -41,9 +43,15 @@ pub struct Link {
 }
 
 #[derive(Debug, Clone)]
+pub struct Commands {
+    pub commands: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Config {
     pub project: Project,
     pub layout: Layout,
     pub dependecies: Option<Dependecies>,
     pub link: Option<Link>,
+    pub commands: Option<Commands>,
 }
