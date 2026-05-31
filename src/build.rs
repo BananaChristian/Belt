@@ -42,7 +42,7 @@ impl Builder {
         let builder = Builder {
             graph: match Graph::build(&workspace.source_files) {
                 Ok(g) => g,
-                Err(e) => return Err(format!("error: failed to get source files: {}",e)),
+                Err(e) => return Err(format!("error: failed to get source files: {}", e)),
             },
             workspace: workspace,
         };
@@ -198,6 +198,69 @@ impl Builder {
 
             if !status.success() {
                 return Err("error: linking failed".to_string());
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn check(&self) -> Result<(), String> {
+        let stubs_dir = &self.workspace.config.layout.stubs;
+
+        for file in &self.graph.compile_order {
+            let imports = match self.graph.dependecies.get(file) {
+                Some(i) => i,
+                None => continue,
+            };
+
+            let mut stub_paths: Vec<String> = Vec::new();
+            for module_name in imports {
+                match self.graph.module_map.get(module_name) {
+                    Some(dep_file) => {
+                        let stub = format!("{}/{}.stub", stubs_dir, module_name);
+                        if !std::path::Path::new(&stub).exists() {
+                            println!("generating stub for {}", module_name);
+                            let status = Command::new("unnc")
+                                .arg(dep_file)
+                                .arg("-stub")
+                                .arg(&stub)
+                                .status()
+                                .map_err(|e| format!("error: failed to invoke unnc: {}", e))?;
+                            if !status.success() {
+                                return Err(format!(
+                                    "error: stub generation failed for {}",
+                                    module_name
+                                ));
+                            }
+                        }
+                        stub_paths.push(stub);
+                    }
+                    None => return Err(format!("error: unknown module '{}'", module_name)),
+                }
+            }
+
+            // run check on this file
+            let mut cmd = Command::new("unnc");
+            cmd.arg(file).arg("-check");
+
+            if self.workspace.config.project.freestanding == FreeStanding::True {
+                cmd.arg("-freestanding");
+            }
+
+            if let Some(t) = &self.workspace.config.project.target {
+                cmd.arg("-target").arg(t);
+            }
+
+            for stub in &stub_paths {
+                cmd.arg("-load").arg(stub);
+            }
+
+            let status = cmd
+                .status()
+                .map_err(|e| format!("error: failed to invoke unnc: {}", e))?;
+
+            if !status.success() {
+                return Err(format!("error: check failed for {}", file));
             }
         }
 

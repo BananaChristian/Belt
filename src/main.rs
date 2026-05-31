@@ -110,9 +110,16 @@ fn main() {
             Err(e) => eprintln!("{}", e),
         },
         Some("check") => match load_config() {
-            Ok(config) => {
-                println!("{:#?}", config);
-            }
+            Ok(config) => match Workspace::build(&config) {
+                Ok(workspace) => match Builder::new(workspace) {
+                    Ok(builder) => match builder.check() {
+                        Ok(_) => println!("check complete"),
+                        Err(e) => eprintln!("{}", e),
+                    },
+                    Err(e) => eprintln!("{}", e),
+                },
+                Err(e) => eprintln!("{}", e),
+            },
             Err(e) => eprintln!("{}", e),
         },
         Some("version") => {
