@@ -4,6 +4,7 @@ mod graph;
 mod leather;
 mod project;
 mod scaffold;
+mod lock;
 
 use std::env;
 use std::process::Command;

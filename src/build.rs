@@ -1,6 +1,7 @@
 use std::process::Command;
 
 use crate::config::{BuildMode, FreeStanding};
+use crate::lock::LockFile;
 use crate::{graph::Graph, project::Workspace};
 
 fn obj_extension() -> &'static str {
@@ -55,7 +56,6 @@ impl Builder {
         let obj_dir = &self.workspace.config.layout.objs;
         let target = &self.workspace.config.project.target;
 
-        // pick extensions based on target or host
         let obj_ext = match target {
             Some(t) => target_obj_extension(t),
             None => obj_extension(),
@@ -65,20 +65,45 @@ impl Builder {
             None => exe_extension(),
         };
 
+        // load lock file
+        let mut lock = LockFile::load("belt.lock");
+        let mut dirty_set: std::collections::HashSet<String> = std::collections::HashSet::new();
+
         for file in &self.graph.compile_order {
             let imports = match self.graph.dependecies.get(file) {
                 Some(i) => i,
                 None => continue,
             };
 
+            // get module name for this file, fallback to file stem for entry point
+            let module_name = self
+                .graph
+                .module_map
+                .iter()
+                .find(|(_, v)| *v == file)
+                .map(|(k, _)| k.clone())
+                .unwrap_or_else(|| {
+                    std::path::Path::new(file)
+                        .file_stem()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string()
+                });
+
+            // check if dirty
+            let is_dirty = lock.is_dirty(&module_name, file, imports, &dirty_set);
+
             let mut stub_paths: Vec<String> = Vec::new();
 
-            for module_name in imports {
-                match self.graph.module_map.get(module_name) {
+            for module_name_dep in imports {
+                match self.graph.module_map.get(module_name_dep) {
                     Some(dep_file) => {
-                        let stub = format!("{}/{}.stub", stubs_dir, module_name);
-                        if !std::path::Path::new(&stub).exists() {
-                            println!("generating stub for {}", module_name);
+                        let stub = format!("{}/{}.stub", stubs_dir, module_name_dep);
+                        // regenerate stub if dirty or missing
+                        if !std::path::Path::new(&stub).exists()
+                            || dirty_set.contains(module_name_dep)
+                        {
+                            println!("generating stub for {}", module_name_dep);
                             let status = Command::new("unnc")
                                 .arg(dep_file)
                                 .arg("-stub")
@@ -88,17 +113,16 @@ impl Builder {
                             if !status.success() {
                                 return Err(format!(
                                     "error: stub generation failed for {}",
-                                    module_name
+                                    module_name_dep
                                 ));
                             }
                         }
                         stub_paths.push(stub);
                     }
-                    None => return Err(format!("error: unknown module '{}'", module_name)),
+                    None => return Err(format!("error: unknown module '{}'", module_name_dep)),
                 }
             }
 
-            // compile this file
             let file_stem = std::path::Path::new(file)
                 .file_stem()
                 .unwrap_or_default()
@@ -106,31 +130,46 @@ impl Builder {
                 .to_string();
             let obj = format!("{}/{}{}", obj_dir, file_stem, obj_ext);
 
-            println!("compiling {} -> {}", file, obj);
+            if is_dirty {
+                dirty_set.insert(module_name.clone());
+                println!("compiling {} -> {}", file, obj);
 
-            let mut cmd = Command::new("unnc");
-            cmd.arg(file).arg("-compile").arg(&obj);
+                let mut cmd = Command::new("unnc");
+                cmd.arg(file).arg("-compile").arg(&obj);
 
-            // pass target if specified
-            if let Some(t) = target {
-                cmd.arg("-target").arg(t);
-            }
+                if let Some(t) = target {
+                    cmd.arg("-target").arg(t);
+                }
 
-            // pass freestanding if set
-            if self.workspace.config.project.freestanding == FreeStanding::True {
-                cmd.arg("-freestanding");
-            }
+                if self.workspace.config.project.freestanding == FreeStanding::True {
+                    cmd.arg("-freestanding");
+                }
 
-            for stub in &stub_paths {
-                cmd.arg("-load").arg(stub);
-            }
+                for stub in &stub_paths {
+                    cmd.arg("-load").arg(stub);
+                }
 
-            let status = cmd
-                .status()
-                .map_err(|e| format!("error: failed to invoke unnc: {}", e))?;
+                let status = cmd
+                    .status()
+                    .map_err(|e| format!("error: failed to invoke unnc: {}", e))?;
 
-            if !status.success() {
-                return Err(format!("error: compilation failed for {}", file));
+                if !status.success() {
+                    return Err(format!("error: compilation failed for {}", file));
+                }
+
+                // update lock entry
+                let hash = LockFile::hash_file(file).unwrap_or_default();
+                lock.entries.insert(
+                    module_name.clone(),
+                    crate::lock::LockEntry {
+                        name: module_name.clone(),
+                        path: file.clone(),
+                        hash,
+                        deps: imports.clone(),
+                    },
+                );
+            } else {
+                println!("skipping {} (unchanged)", file);
             }
         }
 
@@ -145,22 +184,18 @@ impl Builder {
             let mut cmd = Command::new("unnc");
             cmd.arg("-link-only").arg("-build").arg(&output);
 
-            // pass target if specified
             if let Some(t) = target {
                 cmd.arg("-target").arg(t);
             }
 
-            // pass freestanding if set
             if self.workspace.config.project.freestanding == FreeStanding::True {
                 cmd.arg("-freestanding");
             }
 
-            // pass custom linker script if specified
             if let Some(script) = &self.workspace.config.project.script {
                 cmd.arg("-script").arg(script);
             }
 
-            // entry obj first
             let entry_stem = std::path::Path::new(&self.workspace.entry)
                 .file_stem()
                 .unwrap_or_default()
@@ -169,7 +204,6 @@ impl Builder {
             let entry_obj = format!("{}/{}{}", obj_dir, entry_stem, obj_ext);
             cmd.arg("-link").arg(&entry_obj);
 
-            // rest of objs
             for file in &self.graph.compile_order {
                 if file == &self.workspace.entry {
                     continue;
@@ -183,7 +217,6 @@ impl Builder {
                 cmd.arg("-link").arg(&obj);
             }
 
-            // C libs from belt.lethr [link] section
             if let Some(link) = &self.workspace.config.link {
                 for (_name, libs) in &link.links {
                     for lib in libs {
@@ -201,11 +234,19 @@ impl Builder {
             }
         }
 
+        // save lock file after successful build
+        lock.save("belt.lock")?;
+        println!("lock file updated");
+
         Ok(())
     }
 
     pub fn check(&self) -> Result<(), String> {
         let stubs_dir = &self.workspace.config.layout.stubs;
+
+        // load lock file — read only, we never save after check
+        let lock = LockFile::load("belt.lock");
+        let mut dirty_set: std::collections::HashSet<String> = std::collections::HashSet::new();
 
         for file in &self.graph.compile_order {
             let imports = match self.graph.dependecies.get(file) {
@@ -213,13 +254,40 @@ impl Builder {
                 None => continue,
             };
 
+            // get module name for this file, fallback to file stem for entry point
+            let module_name = self
+                .graph
+                .module_map
+                .iter()
+                .find(|(_, v)| *v == file)
+                .map(|(k, _)| k.clone())
+                .unwrap_or_else(|| {
+                    std::path::Path::new(file)
+                        .file_stem()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string()
+                });
+
+            // check if dirty
+            let is_dirty = lock.is_dirty(&module_name, file, imports, &dirty_set);
+
+            if !is_dirty {
+                println!("skipping {} (unchanged)", file);
+                continue;
+            }
+
+            dirty_set.insert(module_name.clone());
+
             let mut stub_paths: Vec<String> = Vec::new();
-            for module_name in imports {
-                match self.graph.module_map.get(module_name) {
+            for module_name_dep in imports {
+                match self.graph.module_map.get(module_name_dep) {
                     Some(dep_file) => {
-                        let stub = format!("{}/{}.stub", stubs_dir, module_name);
-                        if !std::path::Path::new(&stub).exists() {
-                            println!("generating stub for {}", module_name);
+                        let stub = format!("{}/{}.stub", stubs_dir, module_name_dep);
+                        if !std::path::Path::new(&stub).exists()
+                            || dirty_set.contains(module_name_dep)
+                        {
+                            println!("generating stub for {}", module_name_dep);
                             let status = Command::new("unnc")
                                 .arg(dep_file)
                                 .arg("-stub")
@@ -229,13 +297,13 @@ impl Builder {
                             if !status.success() {
                                 return Err(format!(
                                     "error: stub generation failed for {}",
-                                    module_name
+                                    module_name_dep
                                 ));
                             }
                         }
                         stub_paths.push(stub);
                     }
-                    None => return Err(format!("error: unknown module '{}'", module_name)),
+                    None => return Err(format!("error: unknown module '{}'", module_name_dep)),
                 }
             }
 
@@ -264,6 +332,7 @@ impl Builder {
             }
         }
 
+        // no lock save — check produces no artifacts
         Ok(())
     }
 }
