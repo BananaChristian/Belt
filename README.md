@@ -185,7 +185,7 @@ Belt resolves module names to file paths, generates stubs for dependencies, and 
 
 ## Requirements
 
-- [unnc](https://github.com/you/unnameable) — Unnameable compiler
+- [unnc](https://github.com/BananaChristian/Unnameable) — Unnameable compiler
 - ld.lld — LLVM linker
 
 ## License
