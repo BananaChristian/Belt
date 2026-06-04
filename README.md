@@ -79,7 +79,8 @@ mode = executable
 
 ### [layout]
 
-Override default folder locations. All fields are optional — Belt uses sensible defaults.
+Override default folder locations. All fields are optional. 
+Belt uses sensible defaults.
 
 ```
 [layout]
@@ -162,7 +163,8 @@ debug = "qemu-system-x86_64 -kernel build/myos.elf -s -S -serial stdio"
 
 ## Incremental Builds
 
-Belt automatically tracks file changes via `belt.lock`. Only modified files and their dependents are recompiled on subsequent builds.
+Belt automatically tracks file changes via `belt.lock`. 
+Only modified files and their dependents are recompiled on subsequent builds.
 
 To force a full rebuild:
 
@@ -181,7 +183,7 @@ module mymodule
 import anothermodule
 ```
 
-Belt resolves module names to file paths, generates stubs for dependencies, and passes them to the compiler in the correct order. The compiler never searches for files — Belt handles all resolution.
+Belt resolves module names to file paths, generates stubs for dependencies, and passes them to the compiler in the correct order. The compiler never searches for files, Belt handles all resolution.
 
 ## Requirements
 
