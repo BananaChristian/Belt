@@ -2,11 +2,13 @@ mod build;
 mod config;
 mod graph;
 mod leather;
-mod project;
-mod scaffold;
 mod lock;
+mod project;
+mod resolver;
+mod scaffold;
 
 use std::env;
+use std::path::Path;
 use std::process::Command;
 
 use crate::scaffold::scaffold;
@@ -21,6 +23,20 @@ use crate::project::Workspace;
 fn load_config() -> Result<Config, String> {
     let mut lexer = Lexer::new();
     lexer.load(&String::from("belt.lethr"));
+    lexer.generate();
+
+    let mut parser = Parser::new();
+    parser.load(lexer.get_tokens());
+    let ast = parser.parse()?;
+
+    let analyzer = Semantics::new(ast);
+    analyzer.analyze()
+}
+
+fn load_external_config(path: &Path) -> Result<Config, String> {
+    let config_path = path.join("belt.lethr");
+    let mut lexer = Lexer::new();
+    lexer.load(&config_path.to_string_lossy().to_string());
     lexer.generate();
 
     let mut parser = Parser::new();
@@ -89,7 +105,7 @@ fn main() {
                                 if path.is_file() {
                                     if let Err(e) = std::fs::remove_file(&path) {
                                         eprintln!(
-                                            "error: failed to remove {}:{}",
+                                            "error: failed to remove {}: {}",
                                             path.display(),
                                             e
                                         );
@@ -102,6 +118,13 @@ fn main() {
                             eprintln!("error: could not read {}: {}", dir, e);
                             failed = true;
                         }
+                    }
+                }
+                // delete lock file too
+                if std::path::Path::new("belt.lock").exists() {
+                    if let Err(e) = std::fs::remove_file("belt.lock") {
+                        eprintln!("error: failed to remove belt.lock: {}", e);
+                        failed = true;
                     }
                 }
                 if !failed {

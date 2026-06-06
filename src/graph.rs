@@ -28,7 +28,9 @@ fn topological_sort(
                 Some(dep_file) => {
                     topological_sort(dep_file, graph, module_map, visited, visiting, order)?
                 }
-                None => return Err(format!("error: unknown module '{}'", module_name)),
+                None => {
+                    continue;
+                }
             }
         }
     }
@@ -103,6 +105,7 @@ pub struct Graph {
     pub module_map: HashMap<String, String>, //module_name => file_path
     pub dependecies: HashMap<String, Vec<String>>, //file_path => [files it imports]
     pub compile_order: Vec<String>,          //file_paths in compile order
+    pub unresolved: Vec<String>,             // modules not found local
 }
 
 impl Graph {
@@ -111,18 +114,20 @@ impl Graph {
             module_map: HashMap::new(),
             dependecies: HashMap::new(),
             compile_order: Vec::new(),
+            unresolved: Vec::new(),
         };
 
         graph.module_map = build_module_map(source_files)?;
 
+        // First populate dependencies
         for file in source_files {
             let imports = get_imports(file);
             graph.dependecies.insert(file.clone(), imports);
         }
 
+        // Then do topological sort
         let mut visited = HashSet::new();
         let mut visiting = HashSet::new();
-
         for file in source_files {
             topological_sort(
                 file,
@@ -132,6 +137,19 @@ impl Graph {
                 &mut visiting,
                 &mut graph.compile_order,
             )?;
+        }
+
+        // Then collect unresolved
+        for file in source_files {
+            if let Some(imports) = graph.dependecies.get(file) {
+                for module_name in imports {
+                    if !graph.module_map.contains_key(module_name)
+                        && !graph.unresolved.contains(module_name)
+                    {
+                        graph.unresolved.push(module_name.clone());
+                    }
+                }
+            }
         }
 
         Ok(graph)
